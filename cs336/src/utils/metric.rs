@@ -1,4 +1,7 @@
+use std::hint::black_box;
 use tch::Tensor;
+
+use crate::utils::{CUDA_DEVICE, DEVICE_INDEX};
 
 /// Calculate the memory usage of a tensor in bytes.
 pub fn get_mem_usage(x: Tensor) -> u64 {
@@ -7,10 +10,38 @@ pub fn get_mem_usage(x: Tensor) -> u64 {
     numel.saturating_mul(bytes_per_element)
 }
 
+pub fn time_matmul(a: &Tensor, b: &Tensor) -> f64 {
+    if tch::Cuda::is_available() {
+        tch::Cuda::synchronize(DEVICE_INDEX);
+    }
+    let a = a.to(CUDA_DEVICE);
+    let b = b.to(CUDA_DEVICE);
+
+    let num_trials = 20;
+    let start = std::time::Instant::now();
+    for _ in 0..num_trials {
+        let y = a.matmul(&b);
+        black_box(&y); // incase compiler optimizes away the matmul
+    }
+
+    if tch::Cuda::is_available() {
+        tch::Cuda::synchronize(DEVICE_INDEX);
+    }
+
+    let duration = start.elapsed();
+    println!("Total Time taken for matmul {:.6?} seconds", duration);
+    (duration / num_trials).as_secs_f64()
+}
+
+/// Calculate float point opeations
+pub fn flops(tokens: u64, params: u64) -> u64 {
+    return 2 * tokens * params;
+}
+
 #[cfg(test)]
 mod tests {
     use tch::Kind;
-    use tch::kind::FLOAT_CPU;
+    use tch::kind::{FLOAT_CPU, FLOAT_CUDA};
 
     use super::*;
 
@@ -74,5 +105,26 @@ mod tests {
         } else {
             assert_eq!(t.device(), tch::Device::Cpu);
         }
+    }
+
+    #[test]
+    fn test_flops() {
+        let B = 16384; // number of points
+        let D = 32768; // dimension of each point
+        let K = 8192; // number of outputs
+
+        let x = Tensor::rand([B, D], FLOAT_CUDA);
+        let w = Tensor::rand([D, K], FLOAT_CUDA);
+
+        let params = D * K;
+        let actual_flops = flops(B as u64, params as u64);
+        let duration = time_matmul(&x, &w);
+        let actual_flop_per_sec = actual_flops as f64 / duration;
+        println!("Time taken per matmul {:.6} seconds", duration);
+        println!("FLOPS: {:.2} TFLOPS", actual_flop_per_sec / 1e12);
+
+        // results for 5090 Ti
+        // Actural FLOPS: 17.07 TFLOPS
+        // Promised FLOPS: 29.15 TFLOPS
     }
 }

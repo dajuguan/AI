@@ -1,7 +1,5 @@
-[build]
-rustc-wrapper = "sccache"
-
 [env]
 LIBTORCH = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch"
 LIBTORCH_INCLUDE = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch"
 LIBTORCH_LIB = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib"
+PKG_CONFIG_PATH = { value = "~/.gvm/pkgsets/go1.24.0/global/overlay/lib/pkgconfig", force = true }

@@ -1,0 +1,28 @@
+set shell := ["zsh", "-cu"]
+
+default:
+    @just --list
+
+# Fast compile check (no tests).
+check:
+    cargo check -q
+
+# Run all tests.
+test:
+    cargo test -q
+
+# Run one test by substring, e.g. `just test-one device_info`.
+test-one name:
+    cargo test -q {{name}} -- --nocapture
+
+# Common CUDA sanity test used in this repo.
+test-device:
+    cargo test -q test_device_info -- --nocapture
+
+# Rebuild torch-sys only (use after env/libtorch changes).
+clean-torch:
+    cargo clean -p torch-sys
+
+# Verbose build diagnostics for rebuild/fingerprint debugging.
+build-vv:
+    cargo build -vv
