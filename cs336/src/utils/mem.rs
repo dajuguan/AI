@@ -40,4 +40,25 @@ mod tests {
         assert_eq!(v_f16, 0.0, "1e-8 should underflow to zero in float16");
         assert_ne!(v_bf16, 0.0, "1e-8 should stay non-zero in bfloat16");
     }
+
+    #[test]
+    fn test_device_info() {
+        let t = Tensor::from_slice(&[1e-8_f32]);
+        let is_available = tch::Cuda::is_available();
+        let device_count = tch::Cuda::device_count();
+        let cuda_probe_ok = t.f_to(tch::Device::Cuda(0)).is_ok();
+
+        println!("Device: {:?}", t.device());
+        println!("Cuda::is_available(): {is_available}");
+        println!("Cuda::device_count(): {device_count}");
+        println!("CUDA allocation probe: {cuda_probe_ok}");
+
+        if cuda_probe_ok {
+            let t_cuda = t.to_device(tch::Device::Cuda(0));
+            println!("CUDA Device: {:?}", t_cuda.device());
+            assert_eq!(t_cuda.device(), tch::Device::Cuda(0));
+        } else {
+            assert_eq!(t.device(), tch::Device::Cpu);
+        }
+    }
 }

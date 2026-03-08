@@ -5,3 +5,9 @@ edition = "2024"
 
 [dependencies]
 tch = "0.23.0"
+
+
+[profile.dev]
+debug = 0
+incremental = true
+codegen-units = 256
