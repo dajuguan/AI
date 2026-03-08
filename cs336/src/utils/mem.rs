@@ -57,6 +57,20 @@ mod tests {
             let t_cuda = t.to_device(tch::Device::Cuda(0));
             println!("CUDA Device: {:?}", t_cuda.device());
             assert_eq!(t_cuda.device(), tch::Device::Cuda(0));
+            println!("tch::utils::has_cuda(): {}", tch::utils::has_cuda());
+            println!("tch::utils::has_cudart(): {}", tch::utils::has_cudart());
+            println!(
+                "tch::Cuda::cudnn_is_available(): {}",
+                tch::Cuda::cudnn_is_available()
+            );
+            println!(
+                "tch::utils::version_cudnn(): {}",
+                tch::utils::version_cudnn()
+            );
+            println!(
+                "tch::utils::version_cudart(): {}",
+                tch::utils::version_cudart()
+            );
         } else {
             assert_eq!(t.device(), tch::Device::Cpu);
         }

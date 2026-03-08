@@ -1,10 +1,14 @@
 {
     "rust-analyzer.cargo.extraEnv": {
-        "LIBTORCH_USE_PYTORCH": "1",
+        "LIBTORCH": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch",
+        "LIBTORCH_INCLUDE": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch",
+        "LIBTORCH_LIB": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib",
         "LD_LIBRARY_PATH": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib:${env:LD_LIBRARY_PATH}"
     },
     "rust-analyzer.check.extraEnv": {
-        "LIBTORCH_USE_PYTORCH": "1",
+        "LIBTORCH": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch",
+        "LIBTORCH_INCLUDE": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch",
+        "LIBTORCH_LIB": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib",
         "LD_LIBRARY_PATH": "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib:${env:LD_LIBRARY_PATH}"
     }
 }

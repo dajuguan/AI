@@ -1,0 +1,7 @@
+[build]
+rustc-wrapper = "sccache"
+
+[env]
+LIBTORCH = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch"
+LIBTORCH_INCLUDE = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch"
+LIBTORCH_LIB = "~/.pyenv/versions/3.14.3/lib/python3.14/site-packages/torch/lib"
