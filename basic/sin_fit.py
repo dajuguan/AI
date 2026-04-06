@@ -22,15 +22,15 @@ MIN_LR_SCALE = 0.05
 WEIGHT_DECAY = 1e-5
 STATE_DIM = 2
 SWIGLU_GATE_BIAS = 1.0
-FOURIER_NUM_FREQS = 1
-FOURIER_BASE_FREQUENCY = 1.0
+FOURIER_NUM_FREQS = 2
+FOURIER_INITIAL_FREQUENCIES = (0.5, -0.5)
 FOURIER_MODEL_DIM = 8
 FOURIER_FFN_DIM = 16
 FOURIER_NUM_LAYERS = 1
 FOURIER_TRAIN_STEPS = 3000
 FOURIER_LEARNING_RATE = 3e-3
-FOURIER_FREQUENCY_LR = 1e-5
-FOURIER_FREQUENCY_REG = 1e-3
+FOURIER_FREQUENCY_LR = 1e-3
+FOURIER_FREQUENCY_REG = 0.0
 FOURIER_WEIGHT_DECAY = 1e-6
 FOURIER_GRAD_CLIP_NORM = 0.2
 FOURIER_WARMUP_FRACTION = 0.05
@@ -133,29 +133,29 @@ class FourierFeatureEncoder(torch.nn.Module):
     def __init__(
         self,
         num_frequencies: int = FOURIER_NUM_FREQS,
-        base_frequency: float = FOURIER_BASE_FREQUENCY,
     ) -> None:
         super().__init__()
-        if num_frequencies < 1:
-            raise ValueError("FOURIER_NUM_FREQS must be positive.")
-        if base_frequency <= 0.0:
-            raise ValueError("FOURIER_BASE_FREQUENCY must be positive.")
-        initial_log_frequencies = math.log(base_frequency) + (
-            math.log(2.0) * torch.arange(num_frequencies, dtype=torch.float32)
+        initial_frequencies = torch.tensor(
+            FOURIER_INITIAL_FREQUENCIES,
+            dtype=torch.float32,
         )
-        self.register_buffer("initial_log_frequencies", initial_log_frequencies)
-        self.log_frequencies = torch.nn.Parameter(initial_log_frequencies.clone())
+        if num_frequencies != int(initial_frequencies.numel()):
+            raise ValueError(
+                "FOURIER_NUM_FREQS must match the number of FOURIER_INITIAL_FREQUENCIES."
+            )
+        self.register_buffer("initial_frequencies", initial_frequencies)
+        self.frequency_params = torch.nn.Parameter(initial_frequencies.clone())
 
     @property
     def output_dim(self) -> int:
-        return 2 * int(self.log_frequencies.numel())
+        return 2 * int(self.frequency_params.numel())
 
     def reset_parameters(self) -> None:
         with torch.no_grad():
-            self.log_frequencies.copy_(self.initial_log_frequencies)
+            self.frequency_params.copy_(self.initial_frequencies)
 
     def frequencies(self) -> torch.Tensor:
-        return torch.exp(self.log_frequencies)
+        return self.frequency_params
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         angles = x * self.frequencies().view(1, -1)
@@ -166,7 +166,6 @@ class FourierFeatureSwiGLUMLP(torch.nn.Module):
     def __init__(
         self,
         num_frequencies: int = FOURIER_NUM_FREQS,
-        base_frequency: float = FOURIER_BASE_FREQUENCY,
         model_dim: int = FOURIER_MODEL_DIM,
         ffn_dim: int = FOURIER_FFN_DIM,
         num_layers: int = FOURIER_NUM_LAYERS,
@@ -184,7 +183,6 @@ class FourierFeatureSwiGLUMLP(torch.nn.Module):
         self.num_layers = num_layers
         self.encoder = FourierFeatureEncoder(
             num_frequencies=num_frequencies,
-            base_frequency=base_frequency,
         )
         self.linear_skip = torch.nn.Linear(self.encoder.output_dim, 1)
         self.input_block = SwiGLUBlock(self.encoder.output_dim, ffn_dim, model_dim)
@@ -223,7 +221,7 @@ class FourierFeatureSwiGLUMLP(torch.nn.Module):
         learning_rate: float,
         weight_decay: float,
     ) -> list[dict[str, object]]:
-        frequency_param = self.encoder.log_frequencies
+        frequency_param = self.encoder.frequency_params
         other_params = [
             param for param in self.parameters() if param is not frequency_param
         ]
@@ -242,14 +240,14 @@ class FourierFeatureSwiGLUMLP(torch.nn.Module):
 
     def regularization_loss(self) -> torch.Tensor:
         return FOURIER_FREQUENCY_REG * (
-            (self.encoder.log_frequencies - self.encoder.initial_log_frequencies)
+            (self.encoder.frequency_params - self.encoder.initial_frequencies)
             .square()
             .mean()
         )
 
     def learned_parameters(self) -> dict[str, torch.Tensor | int]:
         return {
-            "num_frequencies": int(self.encoder.log_frequencies.numel()),
+            "num_frequencies": int(self.encoder.frequency_params.numel()),
             "frequencies": self.encoder.frequencies().detach().cpu(),
             "model_dim": self.model_dim,
             "ffn_dim": self.ffn_dim,
@@ -564,6 +562,10 @@ def count_parameters(model: torch.nn.Module) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
 
+def format_frequency_values(values: torch.Tensor) -> str:
+    return ", ".join(f"{value:.6f}" for value in values.tolist())
+
+
 def print_matrix_exp_model_summary(model: EmbeddedReLUMLP) -> None:
     learned = model.learned_parameters()
     print("  learned dynamics matrix:")
@@ -657,6 +659,14 @@ def run_experiment(
     if isinstance(model, EmbeddedReLUMLP):
         print_matrix_exp_model_summary(model)
     elif isinstance(model, FourierFeatureSwiGLUMLP):
+        print(
+            f"{name} initial frequencies: "
+            + format_frequency_values(model.encoder.initial_frequencies.detach().cpu())
+        )
+        print(
+            f"{name} trained frequencies: "
+            + format_frequency_values(model.encoder.frequencies().detach().cpu())
+        )
         print_fourier_model_summary(model)
     print()
 
@@ -690,7 +700,6 @@ def main() -> None:
     set_seed(SEED)
     fourier_model = FourierFeatureSwiGLUMLP(
         num_frequencies=FOURIER_NUM_FREQS,
-        base_frequency=FOURIER_BASE_FREQUENCY,
         model_dim=FOURIER_MODEL_DIM,
         ffn_dim=FOURIER_FFN_DIM,
         num_layers=FOURIER_NUM_LAYERS,
@@ -715,7 +724,7 @@ def main() -> None:
     )
     print(
         f"  fourier num_frequencies={FOURIER_NUM_FREQS}"
-        f"  base_frequency={FOURIER_BASE_FREQUENCY:.2f}"
+        f"  initial_frequencies={format_frequency_values(torch.tensor(FOURIER_INITIAL_FREQUENCIES))}"
         f"  model_dim={FOURIER_MODEL_DIM}"
         f"  ffn_dim={FOURIER_FFN_DIM}"
         f"  layers={FOURIER_NUM_LAYERS}"
