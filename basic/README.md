@@ -1,3 +1,18 @@
+## Motivation
+
+In theory, a sufficiently wide MLP can approximate any function, so it can also approximate mappings that a CNN can represent. However, universal approximation is only a statement about **expressive power**, not about whether a model is easy to train, data-efficient, or likely to generalize well.
+
+A useful way to think about neural networks is this: network structure is not just an implementation detail, it is inductive bias made concrete. The architecture tells the model which patterns are natural to learn and which ones are hard to discover from data alone.
+
+For image problems, CNNs build the most useful inductive biases directly into the architecture: local connectivity, weight sharing, hierarchical feature composition, and gradually expanding receptive fields. Because of these structural biases, CNNs are much easier to train effectively under finite data, finite compute, and finite training time.
+
+This project is motivated by that gap between theory and practice:
+
+- MLPs are theoretically flexible, but tend to learn mostly global templates on raw pixels
+- CNNs are structurally biased toward image data, so they learn more useful local-to-global representations
+- the representation difference helps explain why CNNs usually optimize better and generalize better in real image tasks
+
+
 # MLP vs CNN Representation Visualization on `tf_flowers`
 
 This directory studies how two very different models represent the same 5-class image classification problem:
@@ -10,18 +25,6 @@ The main goal is not only classification accuracy, but also **representation ana
 - What does an MLP keep in its hidden layers?
 - What kinds of visual patterns appear in CNN feature maps?
 - Why does CNN usually generalize better on natural images?
-
-## Motivation
-
-In theory, a sufficiently wide MLP can approximate any function, so it can also approximate mappings that a CNN can represent. However, universal approximation is only a statement about **expressive power**, not about whether a model is easy to train, data-efficient, or likely to generalize well.
-
-For image problems, CNNs build the most useful inductive biases directly into the architecture: local connectivity, weight sharing, hierarchical feature composition, and gradually expanding receptive fields. Because of these structural biases, CNNs are much easier to train effectively under finite data, finite compute, and finite training time.
-
-This project is motivated by that gap between theory and practice:
-
-- MLPs are theoretically flexible, but tend to learn mostly global templates on raw pixels
-- CNNs are structurally biased toward image data, so they learn more useful local-to-global representations
-- the representation difference helps explain why CNNs usually optimize better and generalize better in real image tasks
 
 ## Dataset
 
@@ -241,7 +244,7 @@ These architectural biases make the CNN far better matched to natural-image data
 
 The accuracy difference is a consequence of the different learned representations.
 
-- MLP test accuracy: `0.5323`
+- MLP test accuracy: `0.5296`
 - CNN test accuracy: `0.8333`
 
 The MLP does learn useful information, but mostly in the form of global templates. The CNN learns a more structured representation: local edges, textures, parts, and then larger semantic patterns. That is why the CNN both **looks more interpretable internally** and **generalizes better externally**.
