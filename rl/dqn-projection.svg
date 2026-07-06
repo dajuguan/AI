@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 600" font-family="'PingFang SC','Microsoft YaHei',-apple-system,Segoe UI,sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- title -->
+  <text x="460" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a1a">投影是否“非扩张”决定压缩性 —— 线性 vs 非线性</text>
+  <text x="460" y="67" text-anchor="middle" font-size="13" fill="#777">Π 非扩张 ⇒ ΠTᵖ 仍是 γ-压缩 ⇒ 收敛；Π 会拉大距离 ⇒ 压缩性崩塌 ⇒ 可能发散</text>
+
+  <!-- panel backgrounds -->
+  <rect x="40" y="88" width="400" height="480" fill="#eaf6ee"/>
+  <rect x="480" y="88" width="400" height="480" fill="#fcf0ec"/>
+  <rect x="40" y="88" width="400" height="480" fill="none" stroke="#b8b8b8" stroke-width="1.2"/>
+  <rect x="480" y="88" width="400" height="480" fill="none" stroke="#b8b8b8" stroke-width="1.2"/>
+
+  <!-- ================= LEFT: linear / non-expansion ================= -->
+  <text x="240" y="118" text-anchor="middle" font-size="17" font-weight="700" fill="#2e7d4f">线性逼近：正交投影 = 非扩张 ✓</text>
+
+  <!-- subspace line -->
+  <line x1="80" y1="430" x2="410" y2="430" stroke="#1f4e79" stroke-width="3"/>
+  <text x="398" y="452" text-anchor="end" font-size="13" fill="#1f4e79" font-style="italic">线性子空间 {Φθ}</text>
+
+  <!-- points x, y -->
+  <circle cx="200" cy="230" r="6" fill="#1a1a1a"/>
+  <text x="200" y="220" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">x</text>
+  <circle cx="320" cy="310" r="6" fill="#1a1a1a"/>
+  <text x="332" y="308" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">y</text>
+
+  <!-- original distance d -->
+  <line x1="200" y1="230" x2="320" y2="310" stroke="#2e7d4f" stroke-width="2.5"/>
+  <text x="240" y="260" text-anchor="middle" font-size="13" fill="#2e7d4f" font-weight="700">d = ‖x−y‖</text>
+
+  <!-- orthogonal drops (dashed, vertical = perpendicular to horizontal line) -->
+  <line x1="200" y1="230" x2="200" y2="430" stroke="#888" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <line x1="320" y1="310" x2="320" y2="430" stroke="#888" stroke-width="1.4" stroke-dasharray="5 4"/>
+
+  <!-- right-angle marks -->
+  <path d="M200,414 L216,414 L216,430" fill="none" stroke="#888" stroke-width="1.2"/>
+  <path d="M320,414 L336,414 L336,430" fill="none" stroke="#888" stroke-width="1.2"/>
+
+  <!-- projected points -->
+  <circle cx="200" cy="430" r="5.5" fill="#2e7d4f"/>
+  <text x="188" y="424" text-anchor="middle" font-size="13" font-weight="700" fill="#2e7d4f">Πx</text>
+  <circle cx="320" cy="430" r="5.5" fill="#2e7d4f"/>
+  <text x="344" y="424" text-anchor="middle" font-size="13" font-weight="700" fill="#2e7d4f">Πy</text>
+
+  <!-- projected distance d' -->
+  <line x1="200" y1="430" x2="320" y2="430" stroke="#c0392b" stroke-width="4"/>
+  <text x="260" y="470" text-anchor="middle" font-size="13" fill="#c0392b" font-weight="700">d′ = ‖Πx−Πy‖</text>
+
+  <text x="240" y="525" text-anchor="middle" font-size="14" font-weight="700" fill="#2e7d4f">d′ ≤ d　投影后距离只会缩不会胀</text>
+  <text x="240" y="548" text-anchor="middle" font-size="12" fill="#555">⇒ ‖ΠTx − ΠTy‖ ≤ γ‖x−y‖，ΠTᵖ 仍是压缩</text>
+
+  <!-- ================= RIGHT: nonlinear / expansion ================= -->
+  <text x="680" y="118" text-anchor="middle" font-size="17" font-weight="700" fill="#c0392b">非线性逼近：流形投影会拉大距离 ✗</text>
+
+  <!-- curved (V-valley) manifold -->
+  <polyline points="560,300 700,480 840,300" fill="none" stroke="#1f4e79" stroke-width="3"/>
+  <text x="700" y="292" text-anchor="middle" font-size="13" fill="#1f4e79" font-style="italic">非线性流形 {Qθ}（弯曲）</text>
+
+  <!-- two CLOSE points x, y -->
+  <circle cx="680" cy="340" r="6" fill="#1a1a1a"/>
+  <text x="668" y="332" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">x</text>
+  <circle cx="720" cy="340" r="6" fill="#1a1a1a"/>
+  <text x="732" y="332" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">y</text>
+
+  <!-- original small distance d -->
+  <line x1="680" y1="340" x2="720" y2="340" stroke="#2e7d4f" stroke-width="2.5"/>
+  <text x="700" y="330" text-anchor="middle" font-size="12" fill="#2e7d4f" font-weight="700">d 很小</text>
+
+  <!-- nearest-point projections (dashed) -->
+  <line x1="680" y1="340" x2="625" y2="383" stroke="#888" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <line x1="720" y1="340" x2="775" y2="383" stroke="#888" stroke-width="1.4" stroke-dasharray="5 4"/>
+
+  <!-- projected points far apart -->
+  <circle cx="625" cy="383" r="5.5" fill="#c0392b"/>
+  <text x="610" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">Πx</text>
+  <circle cx="775" cy="383" r="5.5" fill="#c0392b"/>
+  <text x="792" y="378" text-anchor="middle" font-size="13" font-weight="700" fill="#c0392b">Πy</text>
+
+  <!-- projected large distance d' -->
+  <line x1="625" y1="383" x2="775" y2="383" stroke="#c0392b" stroke-width="4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="700" y="425" text-anchor="middle" font-size="13" fill="#c0392b" font-weight="700">d′ = ‖Πx−Πy‖</text>
+
+  <text x="680" y="525" text-anchor="middle" font-size="14" font-weight="700" fill="#c0392b">d′ ≫ d　两点近、投影后反而远</text>
+  <text x="680" y="548" text-anchor="middle" font-size="12" fill="#555">⇒ 复合算子 ΠTᵖ 不再压缩 → 不动点未必存在/唯一 → 可能发散</text>
+</svg>
