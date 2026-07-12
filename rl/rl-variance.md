@@ -1,4 +1,4 @@
-# 动手感受 RL 中的偏差、方差与 TD(λ) 的 sweet spot
+# Bias, Variance, and the TD(λ) Sweet Spot — A Hands-On Guide
 
 **TL;DR**
 - 回顾 RL 里最容易被误解的"方差"到底指什么,并通过实验拆出**两种方差**:学习目标的方差(根源)、value function 估计量的方差(后果)
@@ -8,7 +8,7 @@
 
 David Silver 在 [RL第四课中](https://davidstarsilver.wordpress.com/wp-content/uploads/2025/04/lecture-4-model-free-prediction-.pdf)讲解了 Monte Carlo(MC)和 Temporal Difference(TD)会有不同的方差和偏差:**MC 方差高但无偏,TD 则偏差大但方差低**。为了讲方差,他举了一个 Driving Home Example,但这个例子第一次看却非常让人 confusing:
 
-![Driving Home Example](imgs/driving_home_image.png)
+![Driving Home Example](https://cdn.jsdelivr.net/gh/pochenai/AI@main/rl/imgs/driving_home_image.png)
 
 卡住我的有三个问题:
 
@@ -69,7 +69,7 @@ $\lambda=0$ 退化成 TD(偏差端)、$\lambda=1$ 退化成 MC(方差端),中间
 
 前面只是大概的定量计算,例子也稍微简单。换一个**真值已知、可解析算误差**的经典 **Markov Reward Process(MRP,马尔可夫奖励过程)** 把它跑出来看——**19-state random walk**(Sutton & Barto 图 12.6 用的同一个例子):状态 $1\dots19$,两端终止,起点在中央 $10$;等概率左右走,走入右端 $+1$、左端 $-1$,其余奖励 $0$;真值线性 $v(i)=(i-10)/10$(即 $-0.9\dots+0.9$)。(注意是 MRP 不是 MDP:这里**没有动作/决策**,固定策略下只有"状态→奖励"的随机转移,是纯 policy evaluation;有动作可选才叫 MDP。)
 
-![19-state random walk 结构图:状态按真值上色,两端终止 ∓1,起点在中央](imgs/random-walk-diagram.svg)
+![19-state random walk 结构图:状态按真值上色,两端终止 ∓1,起点在中央](https://cdn.jsdelivr.net/gh/pochenai/AI@main/rl/imgs/random-walk-diagram.svg)
 
 上图是这个 MRP 的结构:19 个非终止状态排成一条链,两端是终止态(走入右端 $+1$、左端 $-1$),起点在正中央 $10$,每步等概率向左/右一格。状态按真值 $v(i)$ 上色(蓝负红正),对称地从 $-0.9$ 到 $+0.9$——因为越靠右越容易先撞到 $+1$ 那端。
 
@@ -79,7 +79,7 @@ $\lambda=0$ 退化成 TD(偏差端)、$\lambda=1$ 退化成 MC(方差端),中间
 
 先看**根源**。对每个 λ,统计"从 $s_0$ 出发的学习目标 $G_t^\lambda$"的**均值(→偏差)**与**标准差(→方差)**,用误差棒画出(点=均值,棒长=标准差):
 
-![学习目标的均值(偏差)与标准差(方差)随 λ 变化](imgs/bias-variance-targets.svg)
+![学习目标的均值(偏差)与标准差(方差)随 λ 变化](https://cdn.jsdelivr.net/gh/pochenai/AI@main/rl/imgs/bias-variance-targets.svg)
 
 这张图特意分两栏,把"纯方差"和"完整权衡"隔开:
 
@@ -94,7 +94,7 @@ $\lambda=0$ 退化成 TD(偏差端)、$\lambda=1$ 退化成 MC(方差端),中间
 
 > **口径最关键(别踩坑):** 这里的方差是**跨 50 次独立 run** 的最终 $\hat V(s_0)$ 的散布 $\mathrm{Var}(\hat V(s_0))$,**不是**单次训练内 $\hat V(s_0)$ 逐 episode 的历史波动——后者混进了"还没收敛"的暂态,不是分解式里的估计量方差。偏差同理是**跨 run 的最终值均值**减真值。另外 episode 数一定要取够大:不然 TD 还没学到真值,那个"偏差"只是欠训练的假象,而非算法本身的偏差。
 
-![训练后 V̂(s0) 的偏差与估计量方差随 λ 变化](imgs/estimator-bias-variance-vs0.svg)
+![训练后 V̂(s0) 的偏差与估计量方差随 λ 变化](https://cdn.jsdelivr.net/gh/pochenai/AI@main/rl/imgs/estimator-bias-variance-vs0.svg)
 
 - **图(a) 收敛过程(均值线 ± 1 std 误差带):** **λ 大的收敛快但误差带又宽、波动又大**($\lambda=1$ 几十个 episode 就逼近真值线,但误差带最宽);**λ 小的收敛慢但误差带窄**($\lambda=0$ 要三百个 episode 才逐步爬到 $0.5$,但几乎不波动)。这正是 λ 这根旋钮"信息回传快 ↔ 方差大"两面的直观图像。
 - **图(b) 收敛后跨 run 的最终 $\hat V(s_0)$(点=均值,棒长=std):** **所有 λ 的点都落在真值 $0.5$ 附近(收敛后基本无偏)**,差异**纯粹是方差**——误差棒随 λ **单调变长**(std 从 $\lambda{=}0$ 的 $0.04$ 涨到 $\lambda{=}1$ 的 $0.49$)。这是**估计量侧对上一张 (a) 栏的印证**:偏差被训练消掉后,只剩"λ↑ → 方差↑"这条纯方差轴。
