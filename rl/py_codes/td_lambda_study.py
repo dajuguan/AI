@@ -221,8 +221,8 @@ def plot_sweetspot(lambdas, alphas, err):
     for c, lam in zip(cmap, show):
         i = int(np.argmin(np.abs(lambdas - lam)))
         axL.plot(alphas, err[i], "-o", ms=3, color=c, label=f"λ={lam:g}")
-    axL.set_xlabel("步长 α"); axL.set_ylabel("平均 RMS 误差(前 10 episode)")
-    axL.set_title("(a) 每个 λ 对 α 的曲线"); axL.set_ylim(0.1, 0.55)
+    axL.set_xlabel("step size α"); axL.set_ylabel("mean RMS error (first 10 episodes)")
+    axL.set_title("(a) RMS vs α for each λ"); axL.set_ylim(0.1, 0.55)
     axL.legend(fontsize=8, ncol=2); axL.grid(alpha=0.3)
 
     best = err.min(axis=1)                 # best alpha for each lambda
@@ -234,12 +234,12 @@ def plot_sweetspot(lambdas, alphas, err):
                  textcoords="offset points", xytext=(10, 22), fontsize=9,
                  color="#2e7d32",
                  arrowprops=dict(arrowstyle="->", color="#2e7d32"))
-    axR.annotate("λ=0\n纯 TD(0)\n偏差端", (lambdas[0], best[0]),
+    axR.annotate("λ=0\npure TD(0)\nbias end", (lambdas[0], best[0]),
                  textcoords="offset points", xytext=(12, 4), fontsize=8, color="#555")
-    axR.annotate("λ=1\n纯 MC\n方差端", (lambdas[-1], best[-1]),
+    axR.annotate("λ=1\npure MC\nvariance end", (lambdas[-1], best[-1]),
                  textcoords="offset points", xytext=(-30, 6), fontsize=8, color="#555")
-    axR.set_xlabel("λ"); axR.set_ylabel("最优 α 下的平均 RMS 误差")
-    axR.set_title("(b) 性能对 λ:两端都差,中间有 sweet spot"); axR.grid(alpha=0.3)
+    axR.set_xlabel("λ"); axR.set_ylabel("mean RMS error at best α")
+    axR.set_title("(b) performance vs λ: both ends worse, sweet spot in the middle"); axR.grid(alpha=0.3)
     fig.suptitle("Study of λ (19-state random walk):Should We Bootstrap?", fontsize=13)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(_os.path.join(IMG_DIR, "lambda-sweet-spot.svg"))
@@ -249,26 +249,26 @@ def plot_sweetspot(lambdas, alphas, err):
 def plot_targets(s0, lams, out):
     truev = (s0 - START) / START
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.4), sharey=True)
-    titles = {"true": "(a) V = 真值:三者都无偏(均值贴真值线),λ↑ 方差↑",
-              "zero": "(b) V = 0 未训练:λ=0 偏差大→λ=1 无偏,但方差同步↑"}
+    titles = {"true": "(a) V = true value: all unbiased (mean on true line), variance ↑ as λ ↑",
+              "zero": "(b) V = 0 (untrained): λ=0 biased → λ=1 unbiased, but variance ↑ too"}
     for ax, tag in zip(axes, ["true", "zero"]):
         means, stds = out[tag]
         ax.axhline(truev, color="k", ls="--", lw=1.2, zorder=1)
-        ax.text(0.02, truev + 0.03, f"真值 = {truev:+.1f}", fontsize=9)
+        ax.text(0.02, truev + 0.03, f"true value = {truev:+.1f}", fontsize=9)
         # error bars: point=mean (bias), half-length=std (variance)
         ax.errorbar(lams, means, yerr=stds, fmt="o-", color="#d1495b",
                     ecolor="#3b7dd8", elinewidth=2, capsize=5, ms=6, lw=1.8,
-                    zorder=3, label="均值 ± 1 标准差")
+                    zorder=3, label="mean ± 1 std")
         # annotate the two ends
-        ax.annotate("λ=0\n纯 TD(0)", (lams[0], means[0]),
+        ax.annotate("λ=0\npure TD(0)", (lams[0], means[0]),
                     textcoords="offset points", xytext=(8, -28), fontsize=8, color="#555")
-        ax.annotate("λ=1\n纯 MC", (lams[-1], means[-1]),
+        ax.annotate("λ=1\npure MC", (lams[-1], means[-1]),
                     textcoords="offset points", xytext=(-34, 10), fontsize=8, color="#555")
         ax.set_title(titles[tag], fontsize=10)
         ax.set_xlabel("λ"); ax.grid(alpha=0.3); ax.set_xlim(-0.05, 1.08)
-    axes[0].set_ylabel(f"从状态 {s0} 出发的学习目标\n(点=均值→偏差,棒长=标准差→方差)")
+    axes[0].set_ylabel(f"learning target from state {s0}\n(point=mean→bias, bar=std→variance)")
     axes[0].legend(loc="lower right", fontsize=8)
-    fig.suptitle(f"学习目标的偏差 vs 方差(random walk 状态 {s0},真值 {truev:+.1f})",
+    fig.suptitle(f"target bias vs variance (random walk state {s0}, true value {truev:+.1f})",
                  fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(_os.path.join(IMG_DIR, "bias-variance-targets.svg"))
@@ -291,9 +291,9 @@ def plot_walk_diagram():
                                edgecolor="k", alpha=0.85, zorder=3))
         ax.text(x, 0, "T", ha="center", va="center", color="w", fontsize=11,
                 zorder=4)
-        ax.text(x, -0.62, f"终止\nr={r}", ha="center", va="top", fontsize=9)
+        ax.text(x, -0.62, f"terminal\nr={r}", ha="center", va="top", fontsize=9)
     # start-state annotation
-    ax.annotate("起点", (START, 0), textcoords="offset points", xytext=(0, 34),
+    ax.annotate("start", (START, 0), textcoords="offset points", xytext=(0, 34),
                 ha="center", fontsize=10, color="#2e7d32",
                 arrowprops=dict(arrowstyle="->", color="#2e7d32", lw=1.5))
     # representative left/right transition arrows (illustrated near state 5, each step +-1 with prob 0.5)
@@ -301,13 +301,13 @@ def plot_walk_diagram():
         ax.add_patch(FancyArrowPatch((a, dy * 0.6), (b, dy * 0.6),
                      connectionstyle=f"arc3,rad={0.35 if dy>0 else -0.35}",
                      arrowstyle="-|>", mutation_scale=13, color="#444", zorder=2))
-    ax.text(5.5, 0.55, "每步等概率 ±1\n(各 0.5)", ha="center", fontsize=9, color="#444")
-    ax.text(10, -1.15, "中间转移 r = 0;走入右端 +1、左端 −1;γ=1;真值 v(i)=(i−10)/10",
+    ax.text(5.5, 0.55, "each step ±1 (prob 0.5)", ha="center", fontsize=9, color="#444")
+    ax.text(10, -1.15, "middle transitions r = 0;  +1 on right end, −1 on left end;  γ=1;  true value v(i)=(i−10)/10",
             ha="center", fontsize=9, color="#333")
     cb = fig.colorbar(sc, ax=ax, fraction=0.025, pad=0.02)
-    cb.set_label("真值 v(i)", fontsize=9)
+    cb.set_label("true value v(i)", fontsize=9)
     ax.set_xlim(-1.2, 21.2); ax.set_ylim(-1.4, 1.0); ax.axis("off")
-    ax.set_title("19-state random walk(状态按真值上色)", fontsize=12)
+    ax.set_title("19-state random walk (states colored by true value)", fontsize=12)
     fig.tight_layout()
     fig.savefig(_os.path.join(IMG_DIR, "random-walk-diagram.svg"))
     print("saved random-walk-diagram.svg")
