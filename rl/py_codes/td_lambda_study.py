@@ -1,46 +1,47 @@
 """
-Study of lambda: 感受 TD(lambda) 的 bias-variance 权衡与 sweet spot。
+Study of lambda: feel the bias-variance trade-off and sweet spot of TD(lambda).
 
 MRP: 19-state random walk (Sutton & Barto, Example 7.1 / Fig 12.6)
-  - 非终止状态 1..19, 终止态 0 与 20, 起点 10
-  - 等概率左右走; 走入 20 得 +1, 走入 0 得 -1, 其余 0; gamma = 1
-  - 真值可解析: v(i) = (i - 10) / 10, 即 -0.9 .. +0.9
+  - non-terminal states 1..19, terminal states 0 and 20, start at 10
+  - equal-probability left/right step; +1 on entering 20, -1 on entering 0, else 0; gamma = 1
+  - true value is analytic: v(i) = (i - 10) / 10, i.e. -0.9 .. +0.9
 
-产出两张图:
-  1. lambda-sweet-spot.svg    —— RMS 对 lambda 的 U 形 (两端差、中间最优)
-  2. bias-variance-targets.svg —— 固定状态处, MC/TD(0)/TD(lambda) 学习目标的分布
+Figures produced:
+  1. lambda-sweet-spot.svg        -- U-shape of RMS vs lambda (both ends bad, middle best)
+  2. bias-variance-targets.svg    -- distribution of MC/TD(0)/TD(lambda) learning targets at a fixed state
+  3. estimator-bias-variance-vs0.svg -- bias/variance of the trained estimator V_hat(s0), across runs
 """
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# 让中文正常渲染(系统里有 Droid Sans Fallback 覆盖 CJK):显式注册字体文件最稳妥
+# Make Chinese render (system has Droid Sans Fallback for CJK): registering the font file explicitly is most robust
 import os as _os
 from matplotlib import font_manager as _fm
 _CJK = "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
 if _os.path.exists(_CJK):
     _fm.fontManager.addfont(_CJK)
     _cjk_name = _fm.FontProperties(fname=_CJK).get_name()
-    # 逐字回退:拉丁/数字用 DejaVu(Droid 连 "0"、"." 都没有),中文回退到 Droid
+    # Per-glyph fallback: Latin/digits use DejaVu (Droid lacks even "0" and "."), CJK falls back to Droid
     plt.rcParams["font.family"] = ["DejaVu Sans", _cjk_name]
 plt.rcParams["axes.unicode_minus"] = False
 
-# 图片输出目录: 脚本在 rl/py_codes/, 图放到 rl/imgs/ (相对脚本自身, 从任何 cwd 运行都对)
+# Output dir: script lives in rl/py_codes/, figures go to rl/imgs/ (relative to the script, correct from any cwd)
 IMG_DIR = _os.path.normpath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
                                           "..", "imgs"))
 _os.makedirs(IMG_DIR, exist_ok=True)
 
-N = 19                                    # 非终止状态数
-LEFT, RIGHT = 0, N + 1                    # 终止态 0, 20
-START = (N + 1) // 2                      # 起点 10
+N = 19                                    # number of non-terminal states
+LEFT, RIGHT = 0, N + 1                    # terminal states 0, 20
+START = (N + 1) // 2                      # start state 10
 GAMMA = 1.0
 STATES = np.arange(1, N + 1)
 TRUE_V = (STATES - START) / (START)       # v(i) = (i-10)/10  -> -0.9..0.9
 
 
 def gen_episode(rng, start=START):
-    """返回轨迹 [(s, r, s_next), ...], s 均为非终止态。"""
+    """Return a trajectory [(s, r, s_next), ...], where every s is non-terminal."""
     s = start
     traj = []
     while True:
@@ -52,65 +53,73 @@ def gen_episode(rng, start=START):
             return traj
 
 
-def td_lambda_rms(episodes, lam, alpha):
-    """在给定的一批 episode 上跑在线 TD(lambda)(累积迹), 返回逐 episode 的平均 RMS。"""
-    V = np.zeros(N + 2)                    # V[0], V[20] 恒为 0
+def td_lambda_rms_vs0(episodes, lam, alpha, s0=15):
+    """Run online TD(lambda) (accumulating traces) on a batch of episodes.
+
+    Returns (mean per-episode RMS, list of V_hat(s0) after each episode).
+    """
+    V = np.zeros(N + 2)                    # V[0], V[20] stay 0
     rms = []
-    for traj in episodes:
-        E = np.zeros(N + 2)
-        for (s, r, s2) in traj:
-            delta = r + GAMMA * V[s2] - V[s]
-            E[s] += 1.0
-            V += alpha * delta * E
-            V[LEFT] = 0.0
-            V[RIGHT] = 0.0
-            E *= GAMMA * lam
-        if not np.all(np.isfinite(V)):     # 发散(大 α + 大 λ):记为大误差, 由取最优 α 剔除
-            return 1e3
-        rms.append(np.sqrt(np.mean((V[1:N + 1] - TRUE_V) ** 2)))
-    return np.mean(rms)
+    V_S0 = []
+    # Large alpha + large lambda can diverge; caught by the isfinite check below.
+    # Divergence is expected here, so locally silence its overflow/NaN warnings.
+    with np.errstate(over="ignore", invalid="ignore"):
+        for traj in episodes:
+            E = np.zeros(N + 2)
+            for (s, r, s2) in traj:
+                delta = r + GAMMA * V[s2] - V[s]
+                E[s] += 1.0
+                V += alpha * delta * E
+                V[LEFT] = 0.0
+                V[RIGHT] = 0.0
+                E *= GAMMA * lam
+            if not np.all(np.isfinite(V)):     # diverged: flag as large error, dropped when taking best alpha
+                return 1e3, None
+            rms.append(np.sqrt(np.mean((V[1:N + 1] - TRUE_V) ** 2)))
+            V_S0.append(V[s0])                  # record the value estimate at s0 for bias/variance analysis
+    return np.mean(rms), V_S0
 
 
 def lambda_return_from(traj, V, lam):
-    """给定从某状态开始的轨迹与价值表 V, 计算该起点的 lambda-return(带残差项)。"""
+    """Given a trajectory from some start state and a value table V, compute the lambda-return of that start (with residual term)."""
     rewards = [r for (_, r, _) in traj]
     nexts = [s2 for (_, _, s2) in traj]
-    T = len(traj)                          # 到终止用了 T 步
-    # 各 n-step 回报 G^(n), n = 1..T (n>=T 时即完整回报)
+    T = len(traj)                          # steps taken to termination
+    # n-step returns G^(n), n = 1..T (for n>=T it equals the full return)
     Gn = np.zeros(T + 1)
     G_full = sum((GAMMA ** k) * rewards[k] for k in range(T))
     acc = 0.0
     for n in range(1, T + 1):
         acc += (GAMMA ** (n - 1)) * rewards[n - 1]
-        Gn[n] = acc + (GAMMA ** n) * V[nexts[n - 1]]   # V[终止]=0 时自动等于 G_full
+        Gn[n] = acc + (GAMMA ** n) * V[nexts[n - 1]]   # with V[terminal]=0 this auto-equals G_full
     if lam == 1.0:
         return G_full
     gl = 0.0
     for n in range(1, T):
         gl += (lam ** (n - 1)) * Gn[n]
     gl *= (1 - lam)
-    gl += (lam ** (T - 1)) * G_full        # 残差项: 终止后权重全归完整回报
+    gl += (lam ** (T - 1)) * G_full        # residual term: after termination all weight goes to the full return
     return gl
 
 
-# ---------------------------------------------------------------- 实验 1: sweet spot
+# ---------------------------------------------------------------- Experiment 1: sweet spot
 def experiment_sweetspot(runs=100, eps_per_run=10, seed=0):
     lambdas = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.975, 0.99, 1.0])
     alphas = np.round(np.arange(0.02, 0.62, 0.04), 3)
-    err = np.zeros((len(lambdas), len(alphas)))   # 累加 RMS
+    err = np.zeros((len(lambdas), len(alphas)))   # accumulate RMS
     rng = np.random.default_rng(seed)
     for _ in range(runs):
-        episodes = [gen_episode(rng) for _ in range(eps_per_run)]  # 共用随机数
+        episodes = [gen_episode(rng) for _ in range(eps_per_run)]  # shared random numbers
         for i, lam in enumerate(lambdas):
             for j, al in enumerate(alphas):
-                err[i, j] += td_lambda_rms(episodes, lam, al)
+                err[i, j] += td_lambda_rms_vs0(episodes, lam, al)[0]
     err /= runs
     return lambdas, alphas, err
 
 
-# ---------------------------------------------------------------- 实验 2: 目标的偏差/方差
+# ---------------------------------------------------------------- Experiment 2: bias/variance of the target
 def experiment_targets(n_samples=20000, s0=15, seed=1):
-    """扫一串 lambda, 统计从 s0 出发的学习目标的均值(→偏差)与标准差(→方差)。"""
+    """Sweep lambda; for targets starting at s0, collect their mean (-> bias) and std (-> variance)."""
     rng = np.random.default_rng(seed)
     trajs = [gen_episode(rng, start=s0) for _ in range(n_samples)]
     V_true = np.zeros(N + 2)
@@ -127,7 +136,84 @@ def experiment_targets(n_samples=20000, s0=15, seed=1):
     return s0, lams, out
 
 
-# ---------------------------------------------------------------- 画图
+# ---------------------------------------------------------------- Experiment 3: bias/variance of the estimator V_hat(s0) (across runs)
+def experiment_estimator_vs0(runs=50, eps_per_run=300, s0=15, alpha=0.05, seed=2):
+    """Across independent runs, record V_hat(s0) after each episode.
+
+    The proper estimator variance Var(V_hat(s0)) is the spread of the FINAL
+    V_hat(s0) ACROSS independent training runs (different random datasets),
+    NOT the within-run spread of V_hat(s0) over episodes. Likewise the bias is
+    (mean of the final V_hat(s0) across runs) - true value.
+    Returns curves[lam] of shape (runs, eps_per_run).
+    """
+    lams = np.array([0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 1.0])
+    curves = {float(l): [] for l in lams}
+    rng = np.random.default_rng(seed)
+    for _ in range(runs):
+        episodes = [gen_episode(rng) for _ in range(eps_per_run)]   # from center, shared across lambdas
+        for lam in lams:
+            _, v_s0 = td_lambda_rms_vs0(episodes, float(lam), alpha, s0=s0)
+            if v_s0 is None:                      # diverged (should not happen at small alpha)
+                continue
+            curves[float(lam)].append(v_s0)
+    for k in curves:
+        curves[k] = np.array(curves[k])           # (runs, eps_per_run)
+    return s0, lams, alpha, curves
+
+
+# ---------------------------------------------------------------- plotting
+def plot_estimator_vs0(s0, lams, alpha, curves):
+    truev = (s0 - START) / START
+    n_runs, n_eps = curves[float(lams[0])].shape
+    eps_axis = np.arange(1, n_eps + 1)
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(11, 4.4))
+
+    # (a) convergence of V_hat(s0): mean line +/- 1 std band across runs
+    show = [0.0, 0.4, 0.6, 0.8, 1.0]
+    # high-contrast: lambda=0 black, then blue -> green -> amber -> red as lambda (and variance) grow
+    colors = {0.0: "#000000", 0.4: "#3b7dd8", 0.6: "#17a77e",
+              0.8: "#e6a700", 1.0: "#d1495b"}
+    # band colors match the lines, except lambda=0's black line uses a light-grey band
+    band_colors = {**colors, 0.0: "#9e9e9e"}
+    # draw every std band first, then all mean lines on top (so later bands can't hide earlier lines)
+    for lam in show:
+        arr = curves[float(lam)]                  # (runs, eps)
+        m, sd = arr.mean(axis=0), arr.std(axis=0)
+        axL.fill_between(eps_axis, m - sd, m + sd, color=band_colors[lam], alpha=0.12)
+    for lam in show:
+        m = curves[float(lam)].mean(axis=0)
+        axL.plot(eps_axis, m, "-", lw=2.0, color=colors[lam], label=f"λ={lam:g}")
+    axL.axhline(truev, color="k", ls="--", lw=1.2)
+    axL.text(eps_axis[0], truev + 0.03, f"true value = {truev:+.1f}", fontsize=9)
+    axL.set_xlabel("episode"); axL.set_ylabel(fr"$\hat{{V}}(s_0)$ over {n_runs} runs")
+    axL.set_title(r"(a) Convergence of $\hat{V}(s_0)$ (mean line, $\pm$1 std band)")
+    axL.legend(fontsize=8, ncol=2); axL.grid(alpha=0.3)
+
+    # (b) end of training: mean (-> bias) and std (-> estimator variance) across runs
+    finals_mean = np.array([curves[float(l)][:, -1].mean() for l in lams])
+    finals_std = np.array([curves[float(l)][:, -1].std() for l in lams])
+    axR.axhline(truev, color="k", ls="--", lw=1.2)
+    axR.text(0.02, truev + 0.03, f"true value = {truev:+.1f}", fontsize=9)
+    axR.errorbar(lams, finals_mean, yerr=finals_std, fmt="o-", color="#d1495b",
+                 ecolor="#3b7dd8", elinewidth=2, capsize=5, ms=6, lw=1.8,
+                 label=r"final $\hat{V}(s_0)$: mean $\pm$ 1 std")
+    axR.annotate("λ=0\npure TD(0)", (lams[0], finals_mean[0]),
+                 textcoords="offset points", xytext=(8, -30), fontsize=8, color="#555")
+    axR.annotate("λ=1\npure MC", (lams[-1], finals_mean[-1]),
+                 textcoords="offset points", xytext=(-36, 12), fontsize=8, color="#555")
+    axR.set_xlabel("λ"); axR.set_ylabel(r"final $\hat{V}(s_0)$ across runs")
+    axR.set_title("(b) bias (point vs true) & estimator variance (bar)")
+    axR.legend(loc="lower right", fontsize=8); axR.grid(alpha=0.3); axR.set_xlim(-0.05, 1.08)
+
+    fig.suptitle(fr"Estimator bias vs variance of $\hat{{V}}(s_0)$ "
+                 fr"(state {s0}, $\alpha$={alpha}, across {n_runs} runs)", fontsize=12)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(_os.path.join(IMG_DIR, "estimator-bias-variance-vs0.svg"))
+    print("saved estimator-bias-variance-vs0.svg")
+    print("  final mean (-> bias vs %.1f):" % truev, np.round(finals_mean, 3))
+    print("  final std  (-> estimator var):", np.round(finals_std, 3))
+
+
 def plot_sweetspot(lambdas, alphas, err):
     fig, (axL, axR) = plt.subplots(1, 2, figsize=(11, 4.2))
     show = [0.0, 0.4, 0.8, 0.9, 0.95, 1.0]
@@ -139,7 +225,7 @@ def plot_sweetspot(lambdas, alphas, err):
     axL.set_title("(a) 每个 λ 对 α 的曲线"); axL.set_ylim(0.1, 0.55)
     axL.legend(fontsize=8, ncol=2); axL.grid(alpha=0.3)
 
-    best = err.min(axis=1)                 # 每个 λ 取最优 α
+    best = err.min(axis=1)                 # best alpha for each lambda
     axR.plot(lambdas, best, "-o", color="#d1495b", lw=2, ms=5)
     k = int(np.argmin(best))
     axR.scatter([lambdas[k]], [best[k]], s=140, facecolors="none",
@@ -169,11 +255,11 @@ def plot_targets(s0, lams, out):
         means, stds = out[tag]
         ax.axhline(truev, color="k", ls="--", lw=1.2, zorder=1)
         ax.text(0.02, truev + 0.03, f"真值 = {truev:+.1f}", fontsize=9)
-        # 误差棒: 点=均值(偏差), 半长=标准差(方差)
+        # error bars: point=mean (bias), half-length=std (variance)
         ax.errorbar(lams, means, yerr=stds, fmt="o-", color="#d1495b",
                     ecolor="#3b7dd8", elinewidth=2, capsize=5, ms=6, lw=1.8,
                     zorder=3, label="均值 ± 1 标准差")
-        # 标注两端
+        # annotate the two ends
         ax.annotate("λ=0\n纯 TD(0)", (lams[0], means[0]),
                     textcoords="offset points", xytext=(8, -28), fontsize=8, color="#555")
         ax.annotate("λ=1\n纯 MC", (lams[-1], means[-1]),
@@ -191,26 +277,26 @@ def plot_targets(s0, lams, out):
 
 
 def plot_walk_diagram():
-    """画出 19-state random walk 的 MRP 结构图(状态按真值上色)。"""
+    """Draw the MRP structure of the 19-state random walk (states colored by true value)."""
     from matplotlib.patches import FancyArrowPatch, Rectangle
     fig, ax = plt.subplots(figsize=(12, 3.2))
-    # 非终止状态: 圆点, 颜色 = 真值 v(i)
+    # non-terminal states: dots colored by true value v(i)
     sc = ax.scatter(STATES, np.zeros(N), c=TRUE_V, cmap="coolwarm",
                     vmin=-1, vmax=1, s=520, edgecolors="k", linewidths=1.2, zorder=3)
     for i in STATES:
         ax.text(i, 0, str(i), ha="center", va="center", fontsize=8, zorder=4)
-    # 终止态: 方块
+    # terminal states: squares
     for x, r, col in [(LEFT, "-1", "#3b4cc0"), (RIGHT, "+1", "#b40426")]:
         ax.add_patch(Rectangle((x - 0.32, -0.32), 0.64, 0.64, facecolor=col,
                                edgecolor="k", alpha=0.85, zorder=3))
-        ax.text(x, 0, "T", ha="center", va="center", color="w", fontsize=10,
-                fontweight="bold", zorder=4)
+        ax.text(x, 0, "T", ha="center", va="center", color="w", fontsize=11,
+                zorder=4)
         ax.text(x, -0.62, f"终止\nr={r}", ha="center", va="top", fontsize=9)
-    # 起点标注
+    # start-state annotation
     ax.annotate("起点", (START, 0), textcoords="offset points", xytext=(0, 34),
-                ha="center", fontsize=10, color="#2e7d32", fontweight="bold",
+                ha="center", fontsize=10, color="#2e7d32",
                 arrowprops=dict(arrowstyle="->", color="#2e7d32", lw=1.5))
-    # 代表性的左右转移箭头(在状态 5 附近示意, 每步 ±1 各 0.5)
+    # representative left/right transition arrows (illustrated near state 5, each step +-1 with prob 0.5)
     for a, b, dy in [(5, 6, 0.22), (6, 5, -0.22)]:
         ax.add_patch(FancyArrowPatch((a, dy * 0.6), (b, dy * 0.6),
                      connectionstyle=f"arc3,rad={0.35 if dy>0 else -0.35}",
@@ -237,9 +323,14 @@ if __name__ == "__main__":
         t0 = time.time()
         s0, lams, out = experiment_targets(n_samples=2000)
         print("smoke targets", round(time.time() - t0, 2), "s")
+        t0 = time.time()
+        s0, lams, alpha, curves = experiment_estimator_vs0(runs=5, eps_per_run=30)
+        print("smoke estimator", round(time.time() - t0, 2), "s")
     else:
         plot_walk_diagram()
         L, A, err = experiment_sweetspot(runs=100)
         plot_sweetspot(L, A, err)
         s0, lams, out = experiment_targets(n_samples=20000)
         plot_targets(s0, lams, out)
+        s0, lams, alpha, curves = experiment_estimator_vs0()
+        plot_estimator_vs0(s0, lams, alpha, curves)
